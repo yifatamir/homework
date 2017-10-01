@@ -9,7 +9,7 @@ from collections import namedtuple
 from dqn_utils import *
 
 reward_file = "rewards.csv"
-rewards_global = np.array([[-1, -1, -1]])
+rewards_global = []
 
 OptimizerSpec = namedtuple("OptimizerSpec", ["constructor", "kwargs", "lr_schedule"])
 
@@ -230,6 +230,7 @@ def learn(env,
         # store last observation to replay buffer
         index = replay_buffer.store_frame(last_obs)
         encoded_obs = replay_buffer.encode_recent_observation()
+        encoded_obs = np.reshape(encoded_obs, (-1, encoded_obs.shape[0]))
         
         # get action to take
         if not model_initialized:
@@ -242,7 +243,7 @@ def learn(env,
                 act = env.action_space.sample()
             else:   # select an action with 1-epsilon probability that gives maximum reward
                 action_probs = session.run(q_curr, feed_dict = {obs_t_ph : encoded_obs})
-                act = tf.argmax(action_probs, axis = 1)[0]
+                act = np.argmax(action_probs, axis = 1)[0]
         
         # step forward in time and store to replay buffer
         last_obs, rew, done, info = env.step(act)
@@ -337,7 +338,9 @@ def learn(env,
             print("learning_rate %f" % optimizer_spec.lr_schedule.value(t))
             sys.stdout.flush()
 
-            rewards_global = np.append(rewards_global, [[t, mean_episode_reward, best_mean_episode_reward]], axis = 0)
-            rewards_global.dump(reward_file)
+            global rewards_global
+            rewards_global.append([t, mean_episode_reward, best_mean_episode_reward])
+            # rewards_global = np.append(rewards_global, [[t, mean_episode_reward, best_mean_episode_reward]], axis = 0)
+            np.array(rewards_global).dump(reward_file)
 
         
