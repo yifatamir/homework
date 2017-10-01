@@ -3,8 +3,7 @@
 """
 Code to load an expert policy and generate roll-out data for behavioral cloning.
 Example usage:
-    python run_expert.py experts/Humanoid-v1.pkl Humanoid-v1 --render \
-            --num_rollouts 20
+    python run_expert.py experts/Humanoid-v1.pkl Humanoid-v1 --render --num_rollouts 20
 
 Author of this script and included expert policies: Jonathan Ho (hoj@openai.com)
 """
@@ -15,6 +14,7 @@ import numpy as np
 import tf_util
 import gym
 import load_policy
+import datetime
 
 def main():
     import argparse
@@ -67,6 +67,13 @@ def main():
 
         expert_data = {'observations': np.array(observations),
                        'actions': np.array(actions)}
+
+        time = datetime.datetime.now().strftime("%I%M%m%d%Y")
+        save_name_obs = "obs_" + args.envname + time + ".npy"
+        np.save(save_name_obs, expert_data['observations'])
+
+        save_name_act = "act_" + args.envname + time + ".npy"
+        np.save(save_name_act, expert_data['actions'])
 
 if __name__ == '__main__':
     main()
