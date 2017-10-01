@@ -8,8 +8,8 @@ import tensorflow.contrib.layers as layers
 from collections import namedtuple
 from dqn_utils import *
 
-reward_file_0 = "rewards_0.csv"
-reward_file_100 = "rewards_100.csv"
+reward_file = "rewards.csv"
+rewards_global = np.array([[-1, -1, -1]])
 
 OptimizerSpec = namedtuple("OptimizerSpec", ["constructor", "kwargs", "lr_schedule"])
 
@@ -136,7 +136,7 @@ def learn(env,
 
     # get value of action from current state
     q_curr = q_func(obs_t_float, num_actions, scope="q_func", reuse=False)
-    action_one_hot = tf.one_hot(act_t_ph, num_actions, on_value = 1, off_value = 0)
+    action_one_hot = tf.one_hot(act_t_ph, num_actions, on_value = 1.0, off_value = 0.0, dtype=tf.float32)
     q_val_curr = tf.reduce_sum(tf.multiply(action_one_hot, q_curr), axis = 1)
 
     # get value of target 
@@ -147,7 +147,7 @@ def learn(env,
     y = tf.stop_gradient(y)
 
     # compute bellman error
-    bellman = tf.reduce_mean(tf.square(tf.subtract(q_val_curr, y))) / 2
+    bellman = tf.reduce_mean(tf.square(tf.subtract(q_val_curr, y)))
 
     total_error = bellman
     # total_error = huber_loss(bellman)
@@ -233,21 +233,22 @@ def learn(env,
         
         # get action to take
         if not model_initialized:
-            act_t_ph = tf.random_uniform([1], minval = 0, maxval = num_actions, dtype = tf.int32)
+            # act = tf.random_uniform([1], minval = 0, maxval = num_actions, dtype = tf.int32)
+            act = env.action_space.sample()
         else:
             epsilon = exploration.value(t)
             if random.uniform(0, 1) < epsilon: # select random action with epsilon probability
-                act_t_ph = tf.random_uniform([1], minval = 0, maxval = num_actions, dtype = tf.int32)
+                # act = tf.random_uniform([1], minval = 0, maxval = num_actions, dtype = tf.int32)
+                act = env.action_space.sample()
             else:   # select an action with 1-epsilon probability that gives maximum reward
                 action_probs = session.run(q_curr, feed_dict = {obs_t_ph : encoded_obs})
-                act_t_ph = tf.argmax(action_probs, axis = 1)
+                act = tf.argmax(action_probs, axis = 1)[0]
         
         # step forward in time and store to replay buffer
+        last_obs, rew, done, info = env.step(act)
         if done:
-            last_obs = env.reset()
-        else:
-            last_obs, rew_t_ph, done, info = env.step(act_t_ph)
-            replay_buffer.store_effect(index, act_t_ph, rew_t_ph, done)
+            last_obs = env.reset()            
+        replay_buffer.store_effect(index, act, rew, done)
 
         # at this point, the environment should have been advanced one step (and
         # reset if done was true), and last_obs should point to the new latest
@@ -325,16 +326,8 @@ def learn(env,
         episode_rewards = get_wrapper_by_name(env, "Monitor").get_episode_rewards()
         if len(episode_rewards) > 0:
             mean_episode_reward = np.mean(episode_rewards[-100:])
-            file = open(reward_file_0, 'w')
-            file.write(mean_episode_reward)
-            file.write(",")
-            file.close()
         if len(episode_rewards) > 100:
             best_mean_episode_reward = max(best_mean_episode_reward, mean_episode_reward)
-            file = open(reward_file_100, 'w')
-            file.write(best_mean_episode_reward)
-            file.write(",")
-            file.close()
         if t % LOG_EVERY_N_STEPS == 0 and model_initialized:
             print("Timestep %d" % (t,))
             print("mean reward (100 episodes) %f" % mean_episode_reward)
@@ -343,4 +336,8 @@ def learn(env,
             print("exploration %f" % exploration.value(t))
             print("learning_rate %f" % optimizer_spec.lr_schedule.value(t))
             sys.stdout.flush()
+
+            rewards_global = np.append(rewards_global, [[t, mean_episode_reward, best_mean_episode_reward]], axis = 0)
+            rewards_global.dump(reward_file)
+
         
