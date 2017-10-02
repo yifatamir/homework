@@ -8,9 +8,6 @@ import tensorflow.contrib.layers as layers
 from collections import namedtuple
 from dqn_utils import *
 
-reward_file = "rewards.csv"
-rewards_global = []
-
 OptimizerSpec = namedtuple("OptimizerSpec", ["constructor", "kwargs", "lr_schedule"])
 
 def learn(env,
@@ -80,6 +77,9 @@ def learn(env,
     assert type(env.observation_space) == gym.spaces.Box
     assert type(env.action_space)      == gym.spaces.Discrete
 
+    reward_file = "rewards" + str(target_update_freq)
+    rewards_global = []
+
     ###############
     # BUILD MODEL #
     ###############
@@ -141,8 +141,8 @@ def learn(env,
 
     # get value of target 
     q_next = q_func(obs_tp1_float, num_actions, scope="target_q_func", reuse=False)
-    q_next = (1 - done_mask_ph) * q_next
     q_val_next = tf.reduce_max(q_next, axis = 1)
+    q_val_next = (1 - done_mask_ph) * q_val_next
     y = rew_t_ph + gamma * q_val_next
     y = tf.stop_gradient(y)
 
@@ -183,10 +183,15 @@ def learn(env,
     best_mean_episode_reward = -float('inf')
     last_obs = env.reset()
     LOG_EVERY_N_STEPS = 10000
+    
+    num_iterations = 4000000
 
     for t in itertools.count():
         ### 1. Check stopping criterion
         if stopping_criterion is not None and stopping_criterion(env, t):
+            break
+
+        if t > num_iterations:
             break
 
         ### 2. Step the env and store the transition
@@ -230,7 +235,7 @@ def learn(env,
         # store last observation to replay buffer
         index = replay_buffer.store_frame(last_obs)
         encoded_obs = replay_buffer.encode_recent_observation()
-        encoded_obs = np.reshape(encoded_obs, (-1, encoded_obs.shape[0]))
+        encoded_obs = np.expand_dims(encoded_obs, 0)
         
         # get action to take
         if not model_initialized:
@@ -338,7 +343,6 @@ def learn(env,
             print("learning_rate %f" % optimizer_spec.lr_schedule.value(t))
             sys.stdout.flush()
 
-            global rewards_global
             rewards_global.append([t, mean_episode_reward, best_mean_episode_reward])
             # rewards_global = np.append(rewards_global, [[t, mean_episode_reward, best_mean_episode_reward]], axis = 0)
             np.array(rewards_global).dump(reward_file)
