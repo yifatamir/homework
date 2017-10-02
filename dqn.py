@@ -141,8 +141,8 @@ def learn(env,
 
     # get value of target 
     q_next = q_func(obs_tp1_float, num_actions, scope="target_q_func", reuse=False)
-    q_next = (1 - done_mask_ph) * q_next
-    q_val_next = tf.reduce_max(q_next, axis = 1)
+    q_val_next = (1 - done_mask_ph) * q_next
+    q_val_next = tf.reduce_max(q_val_next, axis = 1)
     y = rew_t_ph + gamma * q_val_next
     y = tf.stop_gradient(y)
 
@@ -184,9 +184,14 @@ def learn(env,
     last_obs = env.reset()
     LOG_EVERY_N_STEPS = 10000
 
+    num_iterations = 4000000
+
     for t in itertools.count():
         ### 1. Check stopping criterion
         if stopping_criterion is not None and stopping_criterion(env, t):
+            break
+
+        if t > num_iterations:
             break
 
         ### 2. Step the env and store the transition
