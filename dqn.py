@@ -186,6 +186,8 @@ def learn(env,
     
     num_iterations = 4000000
 
+    num_iterations = 4000000
+
     for t in itertools.count():
         ### 1. Check stopping criterion
         if stopping_criterion is not None and stopping_criterion(env, t):
