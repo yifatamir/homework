@@ -22,8 +22,27 @@ def sample(env,
         and returns rollouts by running on the env. 
         Each path can have elements for observations, next_observations, rewards, returns, actions, etc.
     """
-    paths = []
     """ YOUR CODE HERE """
+    paths = []
+    path_template = {"observations":[], "next_observations":[], "rewards":[], "returns":[], "actions":[]}
+    
+    for k in range(num_paths):
+        path = path_template.copy()
+        state = env.reset()
+        for h in range(horizon):
+            # if not done: # not necessary for half-cheetah so I'm commenting it out
+            if render:
+                env.render()
+            path["observations"].append(state)
+            action = controller.get_action(state)
+            state, rew, done, info = env.step(action)
+            path["actions"].append(action)
+            path["next_observations"].append(state)
+            path["rewards"].append(rew)
+            path["returns"].append(sum(path[rewards]))
+            if verbose:
+                print(info)
+        paths.append(path)
 
     return paths
 
@@ -35,17 +54,33 @@ def compute_normalization(data):
     """
     Write a function to take in a dataset and compute the means, and stds.
     Return 6 elements: mean of s_t, std of s_t, mean of (s_t+1 - s_t), std of (s_t+1 - s_t), mean of actions, std of actions
+    – Make sure to produce vector-valued means and stds for the various quantities.
+    – That is, you should have means and stds for each component of each of those vectors.
     """
-
     """ YOUR CODE HERE """
-    return mean_obs, std_obs, mean_deltas, std_deltas, mean_action, std_action
+    obs = np.array([data[i]["observations"] for i in range(len(data))])
+    next_obs = np.array([data[i]["next_observations"] for i in range(len(data))])
+    delta = next_obs - obs
+    acts = np.array([data[i]["actions"] for i in range(len(data))])
+
+    mean_obs = np.mean(obs, axis = 0)
+    std_obs = np.std(obs, axis = 0)
+    mean_deltas = np.mean(delta, axis = 0)
+    std_deltas = np.std(delta, axis = 0)
+    mean_action = np.mean(acts, axis = 0)
+    std_action = np.std(acts, axis = 0)
+
+    return (mean_obs, std_obs, mean_deltas, std_deltas, mean_action, std_action)
 
 
 def plot_comparison(env, dyn_model):
     """
-    Write a function to generate plots comparing the behavior of the model predictions for each element of the state to the actual ground truth, using randomly sampled actions. 
+    Write a function to generate plots comparing the behavior of the model predictions for each element of the state to the actual 
+    ground truth, using randomly sampled actions. 
     """
     """ YOUR CODE HERE """
+
+    #leaving this empty for now
     pass
 
 def train(env, 
@@ -112,7 +147,7 @@ def train(env,
     random_controller = RandomController(env)
 
     """ YOUR CODE HERE """
-
+    data = sample(env, random_controller, num_paths=num_paths_random, horizon=env_horizon, render=False, verbose=False)
 
     #========================================================
     # 
@@ -122,7 +157,8 @@ def train(env,
     # for normalizing inputs and denormalizing outputs
     # from the dynamics network. 
     # 
-    normalization = """ YOUR CODE HERE """
+    """ YOUR CODE HERE """
+    normalization = compute_normalization(data)
 
 
     #========================================================
@@ -158,12 +194,28 @@ def train(env,
 
     #========================================================
     # 
-    # Take multiple iterations of onpolicy aggregation at each iteration refitting the dynamics model to current dataset and then taking onpolicy samples and aggregating to the dataset. 
-    # Note: You don't need to use a mixing ratio in this assignment for new and old data as described in https://arxiv.org/abs/1708.02596
+    # Take multiple iterations of onpolicy aggregation at each iteration refitting the dynamics model to current dataset and then 
+    # taking onpolicy samples and aggregating to the dataset. 
+    # Note: You don't need to use a mixing ratio in this assignment for new and old data as described in 
+    # https://arxiv.org/abs/1708.02596
     # 
     for itr in range(onpol_iters):
         """ YOUR CODE HERE """
 
+        # learn/fit dynamics model using the Adam optimization algorithm
+        dyn_model.fit(data)
+
+        # sample a set of on-policy trajectories from the environment
+        new_data = sample(env, mpc_controller, num_paths=num_paths_onpol, horizon=env_horizon, render=False, verbose=False)
+
+        # append transition to dataset
+        data += new_data
+
+        # compute costs
+        costs = np.array([path_cost(cost_fn, path) for path in new_data])
+        
+        # compute returns
+        returns = np.array([new_data[i]["returns"] for i in range(len(new_data))])
 
 
         # LOGGING
