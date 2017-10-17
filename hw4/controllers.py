@@ -10,7 +10,6 @@ class Controller():
 	def get_action(self, state):
 		pass
 
-
 class RandomController(Controller):
 	def __init__(self, env):
 		""" YOUR CODE HERE """
@@ -52,20 +51,18 @@ class MPCcontroller(Controller):
 		You should use the dynamics model to predict the next state, instead of using the env 
 		to get the actual next state."""
 		""" YOUR CODE HERE """
+		ac_dim = self.env.action_space.shape[0]
+		low = self.env.action_space.low[0] # assuming all dimensions have same range
+		high = self.env.action_space.high[0] # assuming all dimensions have same range
+
 		states = np.repeat(np.array([[state]]), self.num_simulated_paths, axis = 0)
-		actions = np.array([[self.env.action_space.sample()] for i in range(self.num_simulated_paths)])
-		next_s = np.array([[state] for state in self.dyn_model.predict(states[:, -1, :], actions[:, -1, :])])
+		actions = np.random.uniform(low=low, high=high, size=(self.num_simulated_paths, self.horizon, ac_dim))
+		next_s = np.swapaxes(np.array(self.dyn_model.predict(states[:, -1, :], actions[:, 0, :])), 0, 1)
 		states = np.concatenate((states, next_s), axis = 1)
 		for t in range(self.horizon-1):
-			actions = np.concatenate((actions, np.array([[self.env.action_space.sample()] for i in range(self.num_simulated_paths)])), axis = 1)
-			next_s = np.array([[state] for state in self.dyn_model.predict(states[:, -1, :], actions[:, -1, :])])
+			next_s = np.swapaxes(np.array(self.dyn_model.predict(states[:, -1, :], actions[:, t+1, :])), 0, 1)
 			states = np.concatenate((states, next_s), axis = 1)
 		cost_dict = {i : trajectory_cost_fn(self.cost_fn, states[i,:-1,:], actions[i, :, :], states[i, 1:, :]) for i in range(self.num_simulated_paths)}
 		j_star = min(cost_dict, key=cost_dict.get)
 		return actions[j_star,0,:]
 		
-
-
-
-
-
