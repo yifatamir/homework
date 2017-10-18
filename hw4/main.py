@@ -12,10 +12,10 @@ import copy
 import matplotlib.pyplot as plt
 from cheetah_env import HalfCheetahEnvNew
 
-def sample(env, 
-           controller, 
-           num_paths=10, 
-           horizon=1000, 
+def sample(env,
+           controller,
+           num_paths=10,
+           horizon=1000,
            render=False,
            verbose=False):
     """
@@ -85,8 +85,6 @@ def plot_comparison(env, dyn_model):
     ground truth, using randomly sampled actions. 
     """
     """ YOUR CODE HERE """
-
-    #leaving this empty for now
     pass
 
 def train(env, 
@@ -154,6 +152,9 @@ def train(env,
     params["cost_fn"] = "cheetah_cost_fn"
     params["env"] = "HalfCheetahEnvNew"
     logz.save_params(params)
+
+    returns_file = "returns.csv"
+    returns_array = []
 
     #========================================================
     # 
@@ -225,7 +226,7 @@ def train(env,
         print(l)
 
         # sample a set of on-policy trajectories from the environment
-        new_data = sample(env, mpc_controller, num_paths=num_paths_onpol, horizon=env_horizon, render=False, verbose=False)
+        new_data = sample(env, mpc_controller, num_paths=num_paths_onpol, horizon=env_horizon, render=render, verbose=False)
 
         # append transition to dataset
         data += new_data
@@ -237,6 +238,9 @@ def train(env,
         # compute returns
         returns = np.array([new_data[i]["returns"] for i in range(len(new_data))])
         print(returns)
+
+        returns_array.append(returns)
+        np.array(returns_array).dump(returns_file)
 
 
         # LOGGING
