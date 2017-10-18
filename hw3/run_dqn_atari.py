@@ -30,7 +30,8 @@ def atari_model(img_in, num_actions, scope, reuse=False):
 
 def atari_learn(env,
                 session,
-                num_timesteps):
+                num_timesteps,
+                tar_up_fr):
     # This is just a rough estimate
     num_iterations = float(num_timesteps) / 4.0
 
@@ -73,7 +74,7 @@ def atari_learn(env,
         learning_starts=50000,
         learning_freq=4,
         frame_history_len=4,
-        target_update_freq=10000,
+        target_update_freq=tar_up_fr,
         grad_norm_clipping=10
     )
     env.close()
@@ -110,7 +111,7 @@ def get_env(task, seed):
     set_global_seeds(seed)
     env.seed(seed)
 
-    expt_dir = '/tmp/hw3_vid_dir2/'
+    expt_dir = '/home/eecs/gunjan/yifat_expt/'
     env = wrappers.Monitor(env, osp.join(expt_dir, "gym"), force=True)
     env = wrap_deepmind(env)
 
@@ -125,9 +126,11 @@ def main():
 
     # Run training
     seed = 0 # Use a seed of zero (you may want to randomize the seed!)
-    env = get_env(task, seed)
-    session = get_session()
-    atari_learn(env, session, num_timesteps=task.max_timesteps)
+    
+    for tar_up_fr in [1, 100, 100000]:
+        env = get_env(task, seed)
+        session = get_session()
+        atari_learn(env, session, num_timesteps=task.max_timesteps, tar_up_fr = tar_up_fr)
 
 if __name__ == "__main__":
     main()
